@@ -17,6 +17,7 @@ from .models import CarMake, CarModel
 
 from .populate import initiate
 
+import requests
 
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
@@ -92,8 +93,35 @@ def registration(request):
 
 # # Update the `get_dealerships` view to render the index page with
 # a list of dealerships
-# def get_dealerships(request):
-# ...
+
+from django.conf import settings
+
+DEALERS_API = getattr(settings, "DEALERS_API", "http://localhost:3030/fetchDealers")
+
+def get_dealerships(request, dealer_name=None):
+    try:
+        # 若有 dealer_name，往 Node API 帶參數查詢
+        if dealer_name:
+            url = f"{DEALERS_API}/{dealer_name}"
+        else:
+            url = DEALERS_API
+        resp = requests.get(url, timeout=5)
+        resp.raise_for_status()  # 非 2xx 會丟例外
+        try:
+            data = resp.json()
+        except ValueError:
+            # 上游沒有回 JSON 時的保護
+            logger.error("Upstream returned non-JSON response: %s", resp.text)
+            return HttpResponseServerError("Upstream returned invalid JSON")
+        result = {
+            "status": 200,
+            "dealers": data  # React 的 retobj.reviews 就能取到
+        }
+        return JsonResponse(result)
+    except requests.exceptions.RequestException as e:
+        # 可改用 Django 的 logging 設定紀錄
+        logger.exception("Error calling DEALERS_API")
+        return HttpResponseServerError(f"Upstream API error: {e}")
 
 # Create a `get_dealer_reviews` view to render the reviews of a dealer
 # def get_dealer_reviews(request,dealer_id):

@@ -97,6 +97,8 @@ def registration(request):
 from django.conf import settings
 
 DEALERS_API = getattr(settings, "DEALERS_API", "http://localhost:3030/fetchDealers")
+DEALER_API = getattr(settings, "DEALER_API", "http://localhost:3030/fetchDealer")
+REVIEWS_API = getattr(settings, "REVIEWS_API", "http://localhost:3030/fetchReviews/dealer")
 
 def get_dealerships(request, dealer_name=None):
     try:
@@ -124,13 +126,81 @@ def get_dealerships(request, dealer_name=None):
         return HttpResponseServerError(f"Upstream API error: {e}")
 
 # Create a `get_dealer_reviews` view to render the reviews of a dealer
-# def get_dealer_reviews(request,dealer_id):
+def get_dealer_reviews(request, dealer_id):
+    try:
+        if dealer_id:
+            url = f"{REVIEWS_API}/{dealer_id}"
+        else:
+            url = REVIEWS_API
+        resp = requests.get(url, timeout=5)
+        resp.raise_for_status() 
+        try:
+            data = resp.json()
+        except ValueError:
+            logger.error("Upstream returned non-JSON response: %s", resp.text)
+            return HttpResponseServerError("Upstream returned invalid JSON")
+        result = {
+            "status": 200,
+            "reviews": data  # React 的 retobj.reviews 就能取到
+        }
+        return JsonResponse(result)
+    except requests.exceptions.RequestException as e:
+        # 可改用 Django 的 logging 設定紀錄
+        logger.exception("Error calling DEALERS_API")
+        return HttpResponseServerError(f"Upstream API error: {e}")
+
+   
 # ...
 
 # Create a `get_dealer_details` view to render the dealer details
-# def get_dealer_details(request, dealer_id):
-# ...
+def get_dealer_details(request, dealer_id):
+    try:
+        if dealer_id:
+            url = f"{DEALER_API}/{dealer_id}"
+        else:
+            url = DEALER_API
+        resp = requests.get(url, timeout=5)
+        resp.raise_for_status() 
+        try:
+            data = resp.json()
+        except ValueError:
+            logger.error("Upstream returned non-JSON response: %s", resp.text)
+            return HttpResponseServerError("Upstream returned invalid JSON")
+        result = {
+            "status": 200,
+            "dealer": data  # React 的 retobj.reviews 就能取到
+        }
+        return JsonResponse(result)
+    except requests.exceptions.RequestException as e:
+        # 可改用 Django 的 logging 設定紀錄
+        logger.exception("Error calling DEALERS_API")
+        return HttpResponseServerError(f"Upstream API error: {e}")
+
 
 # Create a `add_review` view to submit a review
-# def add_review(request):
-# ...
+def add_review(request):
+    if request.method != "POST":
+        return HttpResponseBadRequest("Only POST allowed")
+
+    try:
+        # 解析前端傳來的 JSON
+        body = json.loads(request.body.decode("utf-8"))
+
+        # 從 JSON 中取欄位
+        name = body.get("name")
+        dealership = body.get("dealership")
+        review = body.get("review")
+        purchase = body.get("purchase")
+        purchase_date = body.get("purchase_date")
+        car_make = body.get("car_make")
+        car_model = body.get("car_model")
+        car_year = body.get("car_year")
+        return JsonResponse({"123","ok"})
+    except json.JSONDecodeError:
+        return HttpResponseBadRequest("Invalid JSON format")
+    except requests.exceptions.RequestException as e:
+        return HttpResponseServerError(f"Error posting to Node API: {e}")
+    except Exception as e:
+        return HttpResponseServerError(f"Unexpected server error: {e}")
+
+

@@ -99,6 +99,7 @@ from django.conf import settings
 DEALERS_API = getattr(settings, "DEALERS_API", "http://localhost:3030/fetchDealers")
 DEALER_API = getattr(settings, "DEALER_API", "http://localhost:3030/fetchDealer")
 REVIEWS_API = getattr(settings, "REVIEWS_API", "http://localhost:3030/fetchReviews/dealer")
+INSERT_REVIEW_API = getattr(settings, "REVIEWS_API", "http://localhost:3030/insert_review/")
 
 def get_dealerships(request, dealer_name=None):
     try:
@@ -195,12 +196,38 @@ def add_review(request):
         car_make = body.get("car_make")
         car_model = body.get("car_model")
         car_year = body.get("car_year")
-        return JsonResponse({"123","ok"})
+
+
+ # （可選）檢查必填欄位
+        if not all([name, dealership, review]):
+            return HttpResponseBadRequest("Missing required fields")
+
+        # （可選）轉發給 Node API（例如 Node API 存 MongoDB）
+        node_payload = {
+            "name": name,
+            "dealership": dealership,
+            "review": review,
+            "purchase": purchase,
+            "purchase_date": purchase_date,
+            "car_make": car_make,
+            "car_model": car_model,
+            "car_year": car_year,
+        }
+
+        node_resp = requests.post(INSERT_REVIEW_API, json=node_payload, timeout=5)
+        node_resp.raise_for_status()
+        node_data = node_resp.json()
+
+        return JsonResponse({
+            "status": 200,
+            "message": "Review submitted successfully",
+            "result": node_data
+        })
+
+
     except json.JSONDecodeError:
         return HttpResponseBadRequest("Invalid JSON format")
     except requests.exceptions.RequestException as e:
         return HttpResponseServerError(f"Error posting to Node API: {e}")
     except Exception as e:
         return HttpResponseServerError(f"Unexpected server error: {e}")
-
-

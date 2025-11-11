@@ -1,5 +1,6 @@
 # Uncomment the required imports before adding the code
 
+from django.conf import settings
 from django.shortcuts import render
 from django.http import HttpResponseRedirect, HttpResponse
 from django.contrib.auth.models import User
@@ -27,13 +28,14 @@ logger = logging.getLogger(__name__)
 def get_cars(request):
     count = CarMake.objects.filter().count()
     print(count)
-    if(count == 0):
+    if (count == 0):
         initiate()
     car_models = CarModel.objects.select_related('car_make')
     cars = []
     for car_model in car_models:
-        cars.append({"CarModel": car_model.name, "CarMake": car_model.car_make.name})
-    return JsonResponse({"CarModels":cars})
+        cars.append({"CarModel": car_model.name,
+                     "CarMake": car_model.car_make.name})
+    return JsonResponse({"CarModels": cars})
 
 
 # Create a `login_request` view to handle sign in request
@@ -53,12 +55,16 @@ def login_user(request):
     return JsonResponse(data)
 
 # Create a `logout_request` view to handle sign out request
+
+
 def logout_request(request):
     logout(request)
-    data = {"userName":""}
+    data = {"userName": ""}
     return JsonResponse(data)
 
 # Create a `registration` view to handle sign up request
+
+
 @csrf_exempt
 def registration(request):
     context = {}
@@ -75,31 +81,48 @@ def registration(request):
         # Check if user already exists
         User.objects.get(username=username)
         username_exist = True
-    except:
+    except BaseException:
         # If not, simply log this is a new user
         logger.debug("{} is new user".format(username))
 
     # If it is a new user
     if not username_exist:
         # Create user in auth_user table
-        user = User.objects.create_user(username=username, first_name=first_name, last_name=last_name,password=password, email=email)
+        user = User.objects.create_user(
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            password=password,
+            email=email)
         # Login the user and redirect to list page
         login(request, user)
-        data = {"userName":username,"status":"Authenticated"}
+        data = {"userName": username, "status": "Authenticated"}
         return JsonResponse(data)
-    else :
-        data = {"userName":username,"error":"Already Registered"}
+    else:
+        data = {"userName": username, "error": "Already Registered"}
         return JsonResponse(data)
 
 # # Update the `get_dealerships` view to render the index page with
 # a list of dealerships
 
-from django.conf import settings
 
-DEALERS_API = getattr(settings, "DEALERS_API", "http://localhost:3030/fetchDealers")
-DEALER_API = getattr(settings, "DEALER_API", "http://localhost:3030/fetchDealer")
-REVIEWS_API = getattr(settings, "REVIEWS_API", "http://localhost:3030/fetchReviews/dealer")
-INSERT_REVIEW_API = getattr(settings, "REVIEWS_API", "http://localhost:3030/insert_review/")
+DEALERS_API = getattr(
+    settings,
+    "DEALERS_API",
+    "http://localhost:3030/fetchDealers")
+DEALER_API = getattr(
+    settings,
+    "DEALER_API",
+    "http://localhost:3030/fetchDealer")
+REVIEWS_API = getattr(
+    settings,
+    "REVIEWS_API",
+    "http://localhost:3030/fetchReviews/dealer")
+INSERT_REVIEW_API = getattr(
+    settings,
+    "REVIEWS_API",
+    "http://localhost:3030/insert_review/")
+
 
 def get_dealerships(request, dealer_name=None):
     try:
@@ -127,6 +150,8 @@ def get_dealerships(request, dealer_name=None):
         return HttpResponseServerError(f"Upstream API error: {e}")
 
 # Create a `get_dealer_reviews` view to render the reviews of a dealer
+
+
 def get_dealer_reviews(request, dealer_id):
     try:
         if dealer_id:
@@ -134,7 +159,7 @@ def get_dealer_reviews(request, dealer_id):
         else:
             url = REVIEWS_API
         resp = requests.get(url, timeout=5)
-        resp.raise_for_status() 
+        resp.raise_for_status()
         try:
             data = resp.json()
         except ValueError:
@@ -150,7 +175,7 @@ def get_dealer_reviews(request, dealer_id):
         logger.exception("Error calling DEALERS_API")
         return HttpResponseServerError(f"Upstream API error: {e}")
 
-   
+
 # ...
 
 # Create a `get_dealer_details` view to render the dealer details
@@ -161,7 +186,7 @@ def get_dealer_details(request, dealer_id):
         else:
             url = DEALER_API
         resp = requests.get(url, timeout=5)
-        resp.raise_for_status() 
+        resp.raise_for_status()
         try:
             data = resp.json()
         except ValueError:
@@ -197,7 +222,6 @@ def add_review(request):
         car_model = body.get("car_model")
         car_year = body.get("car_year")
 
-
  # （可選）檢查必填欄位
         if not all([name, dealership, review]):
             return HttpResponseBadRequest("Missing required fields")
@@ -214,7 +238,10 @@ def add_review(request):
             "car_year": car_year,
         }
 
-        node_resp = requests.post(INSERT_REVIEW_API, json=node_payload, timeout=5)
+        node_resp = requests.post(
+            INSERT_REVIEW_API,
+            json=node_payload,
+            timeout=5)
         node_resp.raise_for_status()
         node_data = node_resp.json()
 
@@ -223,7 +250,6 @@ def add_review(request):
             "message": "Review submitted successfully",
             "result": node_data
         })
-
 
     except json.JSONDecodeError:
         return HttpResponseBadRequest("Invalid JSON format")
